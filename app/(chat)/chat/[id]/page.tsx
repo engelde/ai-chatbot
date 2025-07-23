@@ -1,12 +1,12 @@
 import { cookies } from 'next/headers';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 
 import { auth } from '@/app/(auth)/auth';
 import { Chat } from '@/components/chat';
 import { getChatById, getMessagesByChatId } from '@/lib/db/queries';
-import { convertToUIMessages } from '@/lib/utils';
 import { DataStreamHandler } from '@/components/data-stream-handler';
 import { DEFAULT_CHAT_MODEL } from '@/lib/ai/models';
+import { convertToUIMessages } from '@/lib/utils';
 
 export default async function Page(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -19,8 +19,12 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
 
   const session = await auth();
 
+  if (!session) {
+    redirect('/api/auth/guest');
+  }
+
   if (chat.visibility === 'private') {
-    if (!session || !session.user) {
+    if (!session.user) {
       return notFound();
     }
 
@@ -33,6 +37,8 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
     id,
   });
 
+  const uiMessages = convertToUIMessages(messagesFromDb);
+
   const cookieStore = await cookies();
   const chatModelFromCookie = cookieStore.get('chat-model');
 
@@ -41,12 +47,14 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
       <>
         <Chat
           id={chat.id}
-          initialMessages={convertToUIMessages(messagesFromDb)}
-          selectedChatModel={DEFAULT_CHAT_MODEL}
-          selectedVisibilityType={chat.visibility}
+          initialMessages={uiMessages}
+          initialChatModel={DEFAULT_CHAT_MODEL}
+          initialVisibilityType={chat.visibility}
           isReadonly={session?.user?.id !== chat.userId}
+          session={session}
+          autoResume={true}
         />
-        <DataStreamHandler id={id} />
+        <DataStreamHandler />
       </>
     );
   }
@@ -55,12 +63,14 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
     <>
       <Chat
         id={chat.id}
-        initialMessages={convertToUIMessages(messagesFromDb)}
-        selectedChatModel={chatModelFromCookie.value}
-        selectedVisibilityType={chat.visibility}
+        initialMessages={uiMessages}
+        initialChatModel={chatModelFromCookie.value}
+        initialVisibilityType={chat.visibility}
         isReadonly={session?.user?.id !== chat.userId}
+        session={session}
+        autoResume={true}
       />
-      <DataStreamHandler id={id} />
+      <DataStreamHandler />
     </>
   );
 }

@@ -1,29 +1,14 @@
 'use client';
 
-import { useChat } from 'ai/react';
 import { useEffect, useRef } from 'react';
-import { blockDefinitions, BlockKind } from './block';
-import { Suggestion } from '@/lib/db/schema';
-import { initialBlockData, useBlock } from '@/hooks/use-block';
+import { artifactDefinitions } from './artifact';
+import { initialArtifactData, useArtifact } from '@/hooks/use-artifact';
+import { useDataStream } from './data-stream-provider';
 
-export type DataStreamDelta = {
-  type:
-    | 'text-delta'
-    | 'code-delta'
-    | 'sheet-delta'
-    | 'image-delta'
-    | 'title'
-    | 'id'
-    | 'suggestion'
-    | 'clear'
-    | 'finish'
-    | 'kind';
-  content: string | Suggestion;
-};
+export function DataStreamHandler() {
+  const { dataStream } = useDataStream();
 
-export function DataStreamHandler({ id }: { id: string }) {
-  const { data: dataStream } = useChat({ id });
-  const { block, setBlock, setMetadata } = useBlock();
+  const { artifact, setArtifact, setMetadata } = useArtifact();
   const lastProcessedIndex = useRef(-1);
 
   useEffect(() => {
@@ -32,65 +17,65 @@ export function DataStreamHandler({ id }: { id: string }) {
     const newDeltas = dataStream.slice(lastProcessedIndex.current + 1);
     lastProcessedIndex.current = dataStream.length - 1;
 
-    (newDeltas as DataStreamDelta[]).forEach((delta: DataStreamDelta) => {
-      const blockDefinition = blockDefinitions.find(
-        (blockDefinition) => blockDefinition.kind === block.kind,
+    newDeltas.forEach((delta) => {
+      const artifactDefinition = artifactDefinitions.find(
+        (artifactDefinition) => artifactDefinition.kind === artifact.kind,
       );
 
-      if (blockDefinition?.onStreamPart) {
-        blockDefinition.onStreamPart({
+      if (artifactDefinition?.onStreamPart) {
+        artifactDefinition.onStreamPart({
           streamPart: delta,
-          setBlock,
+          setArtifact,
           setMetadata,
         });
       }
 
-      setBlock((draftBlock) => {
-        if (!draftBlock) {
-          return { ...initialBlockData, status: 'streaming' };
+      setArtifact((draftArtifact) => {
+        if (!draftArtifact) {
+          return { ...initialArtifactData, status: 'streaming' };
         }
 
         switch (delta.type) {
-          case 'id':
+          case 'data-id':
             return {
-              ...draftBlock,
-              documentId: delta.content as string,
+              ...draftArtifact,
+              documentId: delta.data,
               status: 'streaming',
             };
 
-          case 'title':
+          case 'data-title':
             return {
-              ...draftBlock,
-              title: delta.content as string,
+              ...draftArtifact,
+              title: delta.data,
               status: 'streaming',
             };
 
-          case 'kind':
+          case 'data-kind':
             return {
-              ...draftBlock,
-              kind: delta.content as BlockKind,
+              ...draftArtifact,
+              kind: delta.data,
               status: 'streaming',
             };
 
-          case 'clear':
+          case 'data-clear':
             return {
-              ...draftBlock,
+              ...draftArtifact,
               content: '',
               status: 'streaming',
             };
 
-          case 'finish':
+          case 'data-finish':
             return {
-              ...draftBlock,
+              ...draftArtifact,
               status: 'idle',
             };
 
           default:
-            return draftBlock;
+            return draftArtifact;
         }
       });
     });
-  }, [dataStream, setBlock, setMetadata, block]);
+  }, [dataStream, setArtifact, setMetadata, artifact]);
 
   return null;
 }

@@ -1,5 +1,4 @@
-import type { Attachment } from 'ai';
-
+import type { Attachment } from '@/lib/types';
 import { LoaderIcon } from './icons';
 
 export const PreviewAttachment = ({
@@ -12,7 +11,7 @@ export const PreviewAttachment = ({
   const { name, url, contentType } = attachment;
 
   return (
-    <div className="flex flex-col gap-2">
+    <div data-testid="input-attachment-preview" className="flex flex-col gap-2">
       <div className="w-20 h-16 aspect-video bg-muted rounded-md relative flex flex-col items-center justify-center">
         {contentType ? (
           contentType.startsWith('image') ? (
@@ -32,7 +31,10 @@ export const PreviewAttachment = ({
         )}
 
         {isUploading && (
-          <div className="animate-spin absolute text-zinc-500">
+          <div
+            data-testid="input-attachment-loader"
+            className="animate-spin absolute text-zinc-500"
+          >
             <LoaderIcon />
           </div>
         )}
